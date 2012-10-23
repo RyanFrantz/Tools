@@ -3,13 +3,8 @@
 use warnings;
 use strict;
 
-#
-# TODO:
-# 1. Add in argument parsing (i.e. for optional connection type header in the output)
-#
-
 my $file = '/proc/net/ip_conntrack';
-my $FS = '|';	# field separator
+my $FS = ',';	# field separator
 # am I missing any TCP connection types?
 my @tcpConnectionTypes = (
 	"CLOSE ",	# careful not to match CLOSE_WAIT here...
