@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import sys, time, re
 
 file = '/proc/net/ip_conntrack'

@@ -1,3 +1,5 @@
+#!/usr/bin/ruby
+
 file = '/proc/net/ip_conntrack'
 FS = ','	# field separator
 # am I missing any TCP connection types?
