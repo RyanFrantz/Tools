@@ -25,7 +25,7 @@ otherConnectionTypes = (
 	'unknown'
 )
 
-CARBON_SERVER = '10.1.1.130'
+CARBON_SERVER = 'xxx.xxx.xxx.xxx'
 CARBON_PORT = 2003	# must be an int
 
 f = open( file )
