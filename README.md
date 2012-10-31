@@ -12,3 +12,17 @@ conntrack2Graphite.py
 I modified conntrackReport.py to feed Graphite it's data.  I borrowed code from Graphite's 'examples/example-client.py'.
 
 Thanks to the Graphite devs for the example code.
+
+tailHaproxy.py
+--------------
+To collect information on the number of HTTP requests (at least GETs and POSTs), I wrote tailHaproxy.py.
+
+So far, this script successfully handles log rotations.
+
+tailMessages.py
+---------------
+I tailored tailHaproxy.py to look at /var/log/messages and report on iptables-related information (dropped packets).
+
+TODO
+====
+I want to clean up the code (i.e. get rid of debug statements used for testing) and add startup scripts to ensure these scripts survive reboots.
