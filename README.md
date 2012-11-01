@@ -25,4 +25,7 @@ I tailored tailHaproxy.py to look at /var/log/messages and report on iptables-re
 
 TODO
 ====
-I want to clean up the code (i.e. get rid of debug statements used for testing) and add startup scripts to ensure these scripts survive reboots.
+1. Clean up the code (i.e. get rid of debug statements used for testing).
+2. Add support for arguments (log to terminal for testing/debugging; daemonizing).
+3. Add daemonizing support.
+4. Add startup scripts to ensure these scripts survive reboots.
