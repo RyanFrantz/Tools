@@ -38,13 +38,12 @@ while True:
             match = re.search( '(\d+_\d+_\d+_\d+):\d+:None::sendDatapoint send queue full, dropping datapoint', string )
             if match is not None:
                 host_address = re.sub( "_", ".", match.group(1) )
-                #print host_address # debug
                 if host_address in countDroppedDatapoints:
                     countDroppedDatapoints[ host_address ] += 1
                 else:
                     countDroppedDatapoints[ host_address ] = 0
 
-        print time.strftime('%F %H:%M:%S') # debug
+        #print time.strftime('%F %H:%M:%S') # debug
         for host_address in countDroppedDatapoints:
             if host_address == "10.101.163.203":
                 next # we need to exclude Abe's Skyline listener
