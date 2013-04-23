@@ -1,38 +1,54 @@
 <?php
 
-# TODO: Documentation.  Add in error handling and support for additional regexiness
-
-# NOTE: I'm tailoring this for Nagios but I can imagine it being useful in other contexts
-
+# RegexParser: Parse a given string for regexiness and expand it into something usable to the caller
+# This is a _very_ esoteric implementation, geared toward Nagios. Also, in its current form
+# it only supports character classes comprised of sets or ranges of digits.
+#
+# While this is tailored for Nagios, I can imagine it being useful in other contexts.
+#
 class RegexParser {
 
+    # Constructor: Expect a single argument, the string to be parsed.
+    # Validate that the string is "valid" as far as we think it to be valid for our purposes.
+    # Throws an exception, as needed.
+    #
     function __construct( $regex ) {
         if ( $regex ) {
             # do the caller a favor and check that the regex is valid
-            $valid_regex = self::isValidRegex( $regex );
-            if ( $valid_regex ) {
-                return true;
-            } else {
-                return false;
+            $valid_regex = $this->isValidRegex( $regex );
+            if ( !$valid_regex ) {
+                throw new InvalidArgumentException( "This doesn't appear to be valid regex, at least for me..." );
             }
         } else {
-            print "Missing argument! Gimme some regex to chew on!\n";
-            return false;
+            throw new InvalidArgumentException( "Missing argument! Gimme some regex to chew on!" );
         }
     }
 
+    # Public: Simply determines if the given regex is one we know how to handle.
+    # At this time, we support concatenated character classes (alliteration FTW!).
+    #
+    # Examples:
+    # 
+    # 'web0[01][0-9][0-9].ny4' MATCHES
+    # 'web0[01]foo[0-9][0-9].ny4' MATCHES; but the 'foo' is silently ignored when parsing the character class later
+    #
     public function isValidRegex( $regex ) {
-        # match strings like 'web0[01][0-9][0-9].ny4' but not 'web0[01]foo[0-9][0-9].ny4'; we're not that smart, yet ;)
         if ( preg_match( '/(^[a-z0-9]+)(\[.+?\]+)(\.\w+)/', $regex, $matches ) ) {
-            $host_prefix = $matches[1];
-            $domain = $matches[3];
             return true;
         } else {
-            print "I don't understand the regex pattern '$regex'! I can handle one more more character classes with sets and/or ranges of digits (i.e. 'web0[01][2-4][567].ny4').\n";
+            #print "I don't understand the pattern '$regex'! Feed me one more more character classes with sets and/or ranges of digits (i.e. 'web0[01][2-4][567].ny4').\n";
             return false;
         }
     }
 
+    # Public: Parses a given character class into its constituent parts.
+    # Currently supports characters classes comprised of sets or ranges of digits
+    #
+    # Examples:
+    #
+    # [135] - Will be parsed into the set '1,3,5'
+    # [0-9] - Will be parsed into the range '1,2,3..9'
+    #
     public function parse_character_class( $regex ) {
         if ( preg_match( '/(\[\d+\])/', $regex, $matches ) ) {
             # we have a set (i.e. [135])
@@ -66,6 +82,14 @@ class RegexParser {
         # we should also return something not nice when we didn't match what we expected...
     }
 
+    # Public: Parses the given regex.
+    # Similar to isValidRegex() except that this function performs the actual parsing of the given string.
+    #
+    # Examples:
+    # 
+    # 'web0[01][0-9][0-9].ny4' MATCHES
+    # 'web0[01]foo[0-9][0-9].ny4' MATCHES; but the 'foo' is silently ignored when parsing the character class
+    #
     public function parseRegex( $regex ) {
         # matches strings like 'web[01][2-4][56]' but not 'web[01][2-4]foo[56]'; the 'foo' will be silently ignored
         if ( preg_match( '/(^[a-z0-9]+)(\[.+?\]+)(\.\w+)/', $regex, $matches ) ) {
