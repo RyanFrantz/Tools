@@ -1,0 +1,85 @@
+#!/usr/bin/ruby
+
+# check_graphite_commits - Check and compare committedPoints from various Graphite instances
+
+require 'net/http'
+require 'json'
+require 'ap'
+
+t = Time.new
+now = t.gmtime.to_i
+from = "-3min"  # look back 3 minutes; I've sometimes seen an instance of graphite behind by 2 data points
+
+hosts = [ "graphite1.example.com", "graphite2.example.com" ]
+
+committedPoints = {}
+begin
+
+    hosts.each do |host|
+
+        committedPoints[host] = []
+        metric = "carbon.agents.#{host.gsub("\.", "_")}-a.committedPoints"
+        params = URI.escape("target=#{metric}&from=#{from}")
+        uri = "http://#{host}/render/?#{params}&rawData=1&format=json"
+
+        response = Net::HTTP.get(URI.parse(uri)) 
+        begin
+            json = JSON.parse(response)
+            rescue JSON::ParserError => msg
+            puts "Invalid JSON data, cannot parse"
+            exit 3
+        end
+        json.each do |k|
+            k["datapoints"].reverse!    # reverse the values, we want to inspect them from latest to oldest
+            k["datapoints"].each do |d|
+                committedPoints[host].push( d[0].to_i ) # btw, 'nil' converts to '0'
+            end
+        end
+    end
+
+rescue SocketError => msg
+
+  puts "SocketError: #{msg}"
+  exit 3
+
+end
+
+#ap committedPoints   #debug
+
+numDatapoints = committedPoints[ hosts[0] ].length - 1 # we _should_ have the same number of data points per host
+
+# compare the values from both hosts; if one or both have nothing to compare (i.e. 0), continue until we find values we _can_ compare
+# NOTE: afaik, it's safe to assume that '0' is an abnormal value because we're always pushing data to graphite
+(0..numDatapoints).each do |n|
+    if committedPoints[ hosts[0] ][n] == 0 or committedPoints[ hosts[1] ][n] == 0
+        # nothing to see here, let's try the next set
+        next
+    end
+    # QUANDARY: what do we do if none of the data points is > 0? alert?
+
+    lt_gt_eq = committedPoints[ hosts[0] ][n] <=> committedPoints[ hosts[1] ][n]
+    case lt_gt_eq
+    when -1
+        # lt
+        difference = committedPoints[ hosts[1] ][n] - committedPoints[ hosts[0] ][n]
+        variance = ((difference.to_f / committedPoints[ hosts[1] ][n].to_f) * 100.0)
+        laggard = hosts[0]
+    when 0
+        # eq
+        difference = 0
+        variance = 0
+        laggard = "None"
+    when 1
+        # gt
+        difference = committedPoints[ hosts[0] ][n] - committedPoints[ hosts[1] ][n]
+        variance = ((difference.to_f / committedPoints[ hosts[0] ][n].to_f ) * 100.0)
+        laggard = hosts[1]
+    end
+
+    # eventually we'll complain to Nagios here. Or something
+    printf "Difference: %s\n", difference
+    printf "Variance: %s%%\n", variance.round(2)
+    printf "Laggard: %s\n", laggard
+
+    break   # we're done as soon as we find data we can compare
+end
