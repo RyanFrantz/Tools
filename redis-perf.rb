@@ -45,7 +45,6 @@ end
 def do_command( command )
 
     if $password and !$password.empty?
-        puts "PASSWORD"
         redis = Redis.new( :host => $server, :port => $port, :password => $password )
     else
         redis = Redis.new( :host => $server, :port => $port )
