@@ -6,11 +6,35 @@
 
 require 'benchmark'
 require 'redis'
+require 'choice'
 
 # global variables
 $server = "myredis.example.com"
 $port = 6379
 $password = ''
+
+Choice.options do
+    header ""
+    header "Executes several Redis operations and generates some performance metrics based on the results."
+    header "Optionally, output in CSV format."
+    header ""
+    header "Options:"
+
+    option :csv, :required => false do
+        short "-c"
+        long "--csv"
+        desc "Generate CSV output"
+    end
+
+    option :set_size, :required => false do
+        short "-s"
+        long "--sorted-set-size=SET_SIZE"
+        desc "Set the number of members to pre-fill sorted sets before running commands on them (default: 50)"
+        default 50
+    end
+
+    footer ""   # gimme mah space!
+end
 
 def gen_random_text
     # return 32 ASCII characters (mostly alphabetical characters with some punctuation)
@@ -47,7 +71,7 @@ def get_min( values )
     values[0]
 end
 
-def do_command( command )
+def do_command( command, prefill_max )
 
     if $password and !$password.empty?
         redis = Redis.new( :host => $server, :port => $port, :password => $password )
@@ -72,40 +96,33 @@ def do_command( command )
             time = Benchmark.measure { redis.set( key, i ) }
             redis.del( key  )
         when "zadd"
-            # in testing, i've not see any material difference in ZADD'ing a single-value key vs. ZADD'ing to a key with 100 members
-            member = "zadd#{i}"
+            for j in 1..prefill_max do
+                redis.zadd( key, j, "#{gen_random_text}" )
+            end
+            member = "zadd#{prefill_max + i}"
             time = Benchmark.measure { redis.zadd( key, i, member ) }
             redis.del( key  )
         when "zrem"
-            #optionally, pre-fill the key with 'max' members
-            #max = 50
-            #for j in 1..max do
-            #    redis.zadd( key, j, "#{gen_random_text}" )
-            #end
-            #member = "zrem#{max + i}"
-            member = "zrem#{i}"
+            for j in 1..prefill_max do
+                redis.zadd( key, j, "#{gen_random_text}" )
+            end
+            member = "zrem#{prefill_max + i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure { redis.zrem( key, member ) }
             redis.del( key  )
         when "zrangebyscore"
-            # optionally, pre-fill the key with 'max' members
-            #max = 50
-            #for j in 1..max do
-            #    redis.zadd( key, j, "#{gen_random_text}" )
-            #end
-            #member = "zrangebyscore#{max + i}"
-            member = "zrangebyscore#{i}"
+            for j in 1..prefill_max do
+                redis.zadd( key, j, "#{gen_random_text}" )
+            end
+            member = "zrangebyscore#{prefill_max + i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure{ redis.zrangebyscore( key, i, "+inf" ) }
             redis.del( key )
         when "zremrangebyrank"
-            # optionally, pre-fill the key with 'max' members
-            #max = 50
-            #for j in 1..max do
-            #    redis.zadd( key, j, "#{gen_random_text}" )
-            #end
-            #member = "zremrangebyrank#{max + i}"
-            member = "zremrangebyrank#{i}"
+            for j in 1..prefill_max do
+                redis.zadd( key, j, "#{gen_random_text}" )
+            end
+            member = "zremrangebyrank#{prefill_max + i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure{ redis.zremrangebyrank( key, "0", i ) }
             redis.del( key )
@@ -128,15 +145,27 @@ def do_command( command )
     max = get_max( timings_real )
     average = get_average( timings_real )
     percentile = get_percentile( timings_real, '95' )
-    puts "Min: #{min} ms"
-    puts "Max: #{max} ms"
-    puts "Average: #{average} ms"
-    puts "95th percentile: #{percentile} ms"
+
+    command = "#{command} (Pre-fill=#{prefill_max})" if command =~ /^z/
+    if Choice.choices[:csv]
+        puts "#{command.upcase},#{min},#{max},#{average},#{percentile}"
+    else
+        puts "\n#{command.upcase}"
+        puts "Min: #{min} ms"
+        puts "Max: #{max} ms"
+        puts "Average: #{average} ms"
+        puts "95th percentile: #{percentile} ms"
+    end
 
 end
 
 commands = [ "del", "set", "zadd", "zrem", "zrangebyscore", "zremrangebyrank" ]
+prefill_max = Choice.choices[:set_size].to_i
+
+if Choice.choices[:csv]
+    puts "Command,Min (ms), Max (ms), Average (ms), 95th Percentile (ms)"
+end
+
 commands.each do |command|
-    puts "\n#{command.upcase}"
-    do_command( command )
+    do_command( command, prefill_max )
 end
