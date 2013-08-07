@@ -33,7 +33,31 @@ Choice.options do
         default 50
     end
 
-    footer ""   # gimme mah space!
+    option :tests, :required => false do
+        short "-t"
+        long "--tests=*TESTS"
+        desc "Define which tests to run (default: del, set, zadd, zrem, zrangebyscore, zremrangebyrank)"
+        valid %w[ del set zadd zrem zrangebyscore zremrangebyrank ]
+    end
+
+    footer ""
+    footer "Examples:"
+    footer ""
+    footer "Output results in CSV format"
+    footer "$ #{File.basename( $0 )} -c"
+    footer "$ #{File.basename( $0 )} --csv"
+    footer ""
+    footer "Set the pre-fill size of sorted sets to 5"
+    footer "$ #{File.basename( $0 )} -s 5"
+    footer "$ #{File.basename( $0 )} --sorted-set-size=5"
+    footer ""
+    footer "Test the DEL, SET, and ZADD Redis commands"
+    footer "$ #{File.basename( $0 )} -t del set zadd"
+    footer "$ #{File.basename( $0 )} --tests=del set zadd"
+    footer ""
+    footer "Test ZADD and ZRANGEBYSCORE, pre-filling by 50 (default), and output as CSV"
+    footer "$ #{File.basename( $0 )} -c -t zadd zrangebyscore"
+    footer ""
 end
 
 def gen_random_text
@@ -159,7 +183,12 @@ def do_command( command, prefill_max )
 
 end
 
-commands = [ "del", "set", "zadd", "zrem", "zrangebyscore", "zremrangebyrank" ]
+if Choice.choices[:tests]
+    commands = Choice.choices[:tests]
+else
+    commands = [ "del", "set", "zadd", "zrem", "zrangebyscore", "zremrangebyrank" ]
+end
+
 prefill_max = Choice.choices[:set_size].to_i
 
 if Choice.choices[:csv]
