@@ -12,6 +12,11 @@ $server = "myredis.example.com"
 $port = 6379
 $password = ''
 
+def gen_random_text
+    # return 32 ASCII characters (mostly alphabetical characters with some punctuation)
+    text = (0...32).map{(65+rand(57)).chr}.join
+end
+
 def get_average( values )
     total = 0.0
     values.each do |value|
@@ -57,7 +62,8 @@ def do_command( command )
 
     for i in 1..count do
     
-        key = "performance-monitoring#{command}"
+        # generate a random key to fight the effect of Redis caching
+        key = "perfmon-#{command}-#{gen_random_text}-#{i}"
         case command
         when "del"
             redis.set( key, i )
@@ -65,22 +71,40 @@ def do_command( command )
         when "set"
             time = Benchmark.measure { redis.set( key, i ) }
             redis.del( key  )
-        # for all sorted set commands, methinks we should create more than single-value sets to really test the performance
         when "zadd"
+            # in testing, i've not see any material difference in ZADD'ing a single-value key vs. ZADD'ing to a key with 100 members
             member = "zadd#{i}"
             time = Benchmark.measure { redis.zadd( key, i, member ) }
             redis.del( key  )
         when "zrem"
+            #optionally, pre-fill the key with 'max' members
+            #max = 50
+            #for j in 1..max do
+            #    redis.zadd( key, j, "#{gen_random_text}" )
+            #end
+            #member = "zrem#{max + i}"
             member = "zrem#{i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure { redis.zrem( key, member ) }
             redis.del( key  )
         when "zrangebyscore"
+            # optionally, pre-fill the key with 'max' members
+            #max = 50
+            #for j in 1..max do
+            #    redis.zadd( key, j, "#{gen_random_text}" )
+            #end
+            #member = "zrangebyscore#{max + i}"
             member = "zrangebyscore#{i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure{ redis.zrangebyscore( key, i, "+inf" ) }
             redis.del( key )
         when "zremrangebyrank"
+            # optionally, pre-fill the key with 'max' members
+            #max = 50
+            #for j in 1..max do
+            #    redis.zadd( key, j, "#{gen_random_text}" )
+            #end
+            #member = "zremrangebyrank#{max + i}"
             member = "zremrangebyrank#{i}"
             redis.zadd( key, i, member )
             time = Benchmark.measure{ redis.zremrangebyrank( key, "0", i ) }
