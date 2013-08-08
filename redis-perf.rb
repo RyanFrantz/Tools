@@ -4,14 +4,13 @@
 # redis-perf.rb - gather some rough timing data for specific Redis commands
 #
 
+# TODO
+# 1. Needs exception handling
+#  a. Especially when asked to run commands against slaves (that are usually not writable)
+
 require 'benchmark'
 require 'redis'
 require 'choice'
-
-# global variables
-$server = "myredis.example.com"
-$port = 6379
-$password = ''
 
 Choice.options do
     header ""
@@ -26,11 +25,24 @@ Choice.options do
         desc "Generate CSV output"
     end
 
+    option :num_tests, :required => false do
+        short "-n"
+        long "--number-of-tests=NUM_TESTS"
+        desc "Set the number of tests to run. At least 100 is recommended for a good sample (default: 100)"
+        default 100
+    end
+
     option :set_size, :required => false do
         short "-s"
         long "--sorted-set-size=SET_SIZE"
         desc "Set the number of members to pre-fill sorted sets before running commands on them (default: 50)"
         default 50
+    end
+
+    option :server, :required => true do
+        short "-S"
+        long "--server=SERVER"
+        desc "REQUIRED. Define the FQDN of the server to test."
     end
 
     option :tests, :required => false do
@@ -44,19 +56,19 @@ Choice.options do
     footer "Examples:"
     footer ""
     footer "Output results in CSV format"
-    footer "$ #{File.basename( $0 )} -c"
-    footer "$ #{File.basename( $0 )} --csv"
+    footer "$ #{File.basename( $0 )} -c -S myredis.example.com"
+    footer "$ #{File.basename( $0 )} --csv --server=myredis.example.com"
     footer ""
     footer "Set the pre-fill size of sorted sets to 5"
-    footer "$ #{File.basename( $0 )} -s 5"
-    footer "$ #{File.basename( $0 )} --sorted-set-size=5"
+    footer "$ #{File.basename( $0 )} -s 5 -S myredis.example.com"
+    footer "$ #{File.basename( $0 )} --sorted-set-size=5 -S myredis.example.com"
     footer ""
     footer "Test the DEL, SET, and ZADD Redis commands"
-    footer "$ #{File.basename( $0 )} -t del set zadd"
-    footer "$ #{File.basename( $0 )} --tests=del set zadd"
+    footer "$ #{File.basename( $0 )} -t del set zadd -S myredis.example.com"
+    footer "$ #{File.basename( $0 )} --tests=del set zadd -S myredis.example.com"
     footer ""
     footer "Test ZADD and ZRANGEBYSCORE, pre-filling by 50 (default), and output as CSV"
-    footer "$ #{File.basename( $0 )} -c -t zadd zrangebyscore"
+    footer "$ #{File.basename( $0 )} -c -t zadd zrangebyscore -S myredis.example.com"
     footer ""
 end
 
@@ -95,6 +107,11 @@ def get_min( values )
     values[0]
 end
 
+# global variables
+$server = Choice.choices[:server]
+$port = 6379
+$password = ''
+
 def do_command( command, prefill_max )
 
     if $password and !$password.empty?
@@ -102,7 +119,8 @@ def do_command( command, prefill_max )
     else
         redis = Redis.new( :host => $server, :port => $port )
     end
-    count = 1000
+    #count = 1000
+    count = Choice.choices[:num_tests]
     timings_cpu_user = []
     timings_cpu_sys = []
     timings_cpu_total = []
